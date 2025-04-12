@@ -136,7 +136,6 @@ class CheckValidator {
 
     final tempBoard = _copyBoard(board);
 
-    // Realizar el movimiento en la copia
     tempBoard[to.row][to.col] = tempBoard[from.row][from.col];
     tempBoard[from.row][from.col] = '';
 

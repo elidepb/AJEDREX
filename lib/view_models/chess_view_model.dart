@@ -6,7 +6,6 @@ part 'move_calculator.dart';
 part 'check_validator.dart';
 
 class ChessViewModel extends ChangeNotifier {
-  // Region: Game State
   late Player player1;
   late Player player2;
   late ChessBoard board;
@@ -15,7 +14,6 @@ class ChessViewModel extends ChangeNotifier {
   Position? _selectedPosition;
   List<Position> _possibleMoves = [];
 
-  // Region: Initialization
   ChessViewModel() {
     _initializePlayers();
     board = ChessBoard();
@@ -65,12 +63,10 @@ class ChessViewModel extends ChangeNotifier {
     );
   }
 
-  // Region: Public Properties
   bool get isWhiteTurn => _isWhiteTurn;
   Position? get selectedPosition => _selectedPosition;
   List<Position> get possibleMoves => _possibleMoves;
 
-  // Region: Timer Management
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _isWhiteTurn ? player1.seconds-- : player2.seconds--;
@@ -85,7 +81,6 @@ class ChessViewModel extends ChangeNotifier {
     _startTimer();
   }
 
-  // Region: Game Logic
   void handleSquareTap(int row, int col) {
     final piece = board.squares[row][col];
 
@@ -115,29 +110,23 @@ class ChessViewModel extends ChangeNotifier {
 
 
   void _movePiece(Position from, Position to) {
-    // Captura al paso
     _handleEnPassantCapture(from, to);
 
-    // Enroque
     if (_isCastlingMove(from, to)) {
       _performCastling(from, to);
       return;
     }
 
-    // Actualizar derechos de enroque
     _updateCastlingRights(from);
 
-    // Movimiento normal
     board.squares[to.row][to.col] = board.squares[from.row][from.col];
     board.squares[from.row][from.col] = '';
 
-    // Establecer objetivo para captura al paso
     _setEnPassantTarget(from, to);
   }
 
   void _handleEnPassantCapture(Position from, Position to) {
     if (board.squares[from.row][from.col] == '♙' || board.squares[from.row][from.col] == '♟') {
-      // Captura al paso
       if (to.col != from.col && board.squares[to.row][to.col].isEmpty) {
         board.squares[from.row][to.col] = '';
       }
@@ -193,11 +182,9 @@ class ChessViewModel extends ChangeNotifier {
       rookTo = Position(row, 3);
     }
 
-    // Mover rey
     board.squares[kingTo.row][kingTo.col] = board.squares[kingFrom.row][kingFrom.col];
     board.squares[kingFrom.row][kingFrom.col] = '';
 
-    // Mover torre
     board.squares[rookTo.row][rookTo.col] = board.squares[rookFrom.row][rookFrom.col];
     board.squares[rookFrom.row][rookFrom.col] = '';
 
@@ -211,7 +198,6 @@ class ChessViewModel extends ChangeNotifier {
     }
   }
 
-  // Region: Utility Methods
   static bool isWhitePiece(String piece) => ['♔', '♕', '♖', '♗', '♘', '♙'].contains(piece);
 
   @override

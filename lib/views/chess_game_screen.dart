@@ -91,7 +91,6 @@ class ChessGameScreen extends StatelessWidget {
                   ?  Colors.green.withOpacity(0.5)
                   : isLightSquare ? lightSquareColor : darkSquareColor,
               child: Center(
-                // En chess_game_screen.dart
                 child: Text(
                   piece,
                   style: TextStyle(

@@ -170,7 +170,6 @@ class _KingMoves extends _BaseMoves {
       }
     }
 
-    // Añadir enroques válidos
     _addCastlingMoves(pos, board, result, isWhite);
 
     return result.where((move) {
@@ -181,12 +180,10 @@ class _KingMoves extends _BaseMoves {
   static void _addCastlingMoves(Position kingPos, ChessBoard board, List<Position> moves, bool isWhite) {
     final row = kingPos.row;
 
-    // Validar enroque corto (kingside)
     if (_canCastleKingside(kingPos, board, isWhite)) {
       moves.add(Position(row, 6));
     }
 
-    // Validar enroque largo (queenside)
     if (_canCastleQueenside(kingPos, board, isWhite)) {
       moves.add(Position(row, 2));
     }
@@ -206,7 +203,7 @@ class _KingMoves extends _BaseMoves {
         hasRook &&
         _isCastlingPathClear(row, 5, 6, board) &&
         !_isAnySquareUnderAttack(row, [4, 5, 6], board, isWhite) &&
-        !CheckValidator.isSquareUnderAttack(kingPos, board, isWhite); // Rey no está en jaque
+        !CheckValidator.isSquareUnderAttack(kingPos, board, isWhite);
   }
 
   static bool _canCastleQueenside(Position kingPos, ChessBoard board, bool isWhite) {
@@ -223,7 +220,7 @@ class _KingMoves extends _BaseMoves {
         hasRook &&
         _isCastlingPathClear(row, 1, 3, board) &&
         !_isAnySquareUnderAttack(row, [2, 3, 4], board, isWhite) && // Solo casillas que el rey atraviesa
-        !CheckValidator.isSquareUnderAttack(kingPos, board, isWhite); // Rey no está en jaque
+        !CheckValidator.isSquareUnderAttack(kingPos, board, isWhite);
   }
 
   static bool _isCastlingPathClear(int row, int startCol, int endCol, ChessBoard board) {
