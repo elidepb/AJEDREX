@@ -13,6 +13,7 @@ class ChessViewModel extends ChangeNotifier {
   bool _isWhiteTurn = true;
   Position? _selectedPosition;
   List<Position> _possibleMoves = [];
+  Position? get promotionPendingPosition => _promotionPendingPosition;
 
   ChessViewModel() {
     _initializePlayers();
@@ -27,15 +28,14 @@ class ChessViewModel extends ChangeNotifier {
     if (_promotionPendingPosition == null) return;
 
     final row = _promotionPendingPosition!.row;
-    final isWhite = row == 0; // Si es fila 0, el peón es blanco (♙)
-
+    final isWhite = row == 0;
     final newPiece = _getPromotionPiece(choice, isWhite);
-    board.squares[row][_promotionPendingPosition!.col] = newPiece;
 
+    board.squares[row][_promotionPendingPosition!.col] = newPiece;
     _promotionPendingPosition = null;
     notifyListeners();
+    Future.delayed(Duration.zero, () => notifyListeners());
   }
-
   String _getPromotionPiece(PromotionChoice choice, bool isWhite) {
     switch (choice) {
       case PromotionChoice.queen:
@@ -123,6 +123,14 @@ class ChessViewModel extends ChangeNotifier {
     board.squares[from.row][from.col] = '';
 
     _setEnPassantTarget(from, to);
+
+    // Verificar promoción de peón
+    final movedPiece = board.squares[to.row][to.col];
+    if ((movedPiece == '♙' && to.row == 0) ||
+        (movedPiece == '♟' && to.row == 7)) {
+      _promotionPendingPosition = to;
+      notifyListeners();
+    }
   }
 
   void _handleEnPassantCapture(Position from, Position to) {

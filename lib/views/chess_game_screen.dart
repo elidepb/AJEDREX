@@ -3,8 +3,104 @@ import 'package:provider/provider.dart';
 import '../view_models/chess_view_model.dart';
 import '../models/chess_model.dart';
 
-class ChessGameScreen extends StatelessWidget {
+class ChessGameScreen extends StatefulWidget {
   const ChessGameScreen({Key? key}) : super(key: key);
+
+  @override
+  _ChessGameScreenState createState() => _ChessGameScreenState();
+}
+
+class _ChessGameScreenState extends State<ChessGameScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ChessViewModel>(
+      builder: (context, viewModel, child) {
+        // Mostrar diálogo de promoción cuando sea necesario
+        if (viewModel.isPromotionPending) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showPromotionDialog(context, viewModel);
+          });
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            title: const Center(
+              child: Text("JUGAR", style: TextStyle(fontSize: 24)),
+            ),
+          ),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  _buildPlayerInfo(context, true),
+                  const SizedBox(height: 12),
+                  _buildChessBoard(context, viewModel),
+                  const SizedBox(height: 12),
+                  _buildPlayerInfo(context, false),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPromotionDialog(BuildContext context, ChessViewModel viewModel) {
+    final position = viewModel.promotionPendingPosition;
+    if (position == null) return;
+
+    final isWhite = position.row == 0;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Promocionar Peón'),
+        content: SizedBox(
+          height: 100,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildPromotionButton(context, viewModel, PromotionChoice.queen, isWhite),
+              _buildPromotionButton(context, viewModel, PromotionChoice.rook, isWhite),
+              _buildPromotionButton(context, viewModel, PromotionChoice.bishop, isWhite),
+              _buildPromotionButton(context, viewModel, PromotionChoice.knight, isWhite),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPromotionButton(BuildContext context, ChessViewModel viewModel,
+      PromotionChoice choice, bool isWhite) {
+    final piece = _getPromotionPiece(choice, isWhite);
+    return TextButton(
+      onPressed: () {
+        Navigator.of(context).pop();
+        viewModel.handlePromotionChoice(choice);
+      },
+      child: Text(
+        piece,
+        style: const TextStyle(fontSize: 40, fontFamily: 'Segoe UI Symbol'),
+      ),
+    );
+  }
+
+  String _getPromotionPiece(PromotionChoice choice, bool isWhite) {
+    switch (choice) {
+      case PromotionChoice.queen:
+        return isWhite ? '♕' : '♛';
+      case PromotionChoice.rook:
+        return isWhite ? '♖' : '♜';
+      case PromotionChoice.bishop:
+        return isWhite ? '♗' : '♝';
+      case PromotionChoice.knight:
+        return isWhite ? '♘' : '♞';
+    }
+  }
 
   Widget _buildPlayerInfo(BuildContext context, bool isPlayer1) {
     final viewModel = Provider.of<ChessViewModel>(context);
@@ -60,10 +156,9 @@ class ChessGameScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildChessBoard(BuildContext context) {
+  Widget _buildChessBoard(BuildContext context, ChessViewModel viewModel) {
     const lightSquareColor = Color(0xFFF0D9B5);
     const darkSquareColor = Color(0xFFB58863);
-    final viewModel = Provider.of<ChessViewModel>(context);
 
     return AspectRatio(
       aspectRatio: 1,
@@ -105,32 +200,6 @@ class ChessGameScreen extends StatelessWidget {
             ),
           );
         },
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: const Center(
-          child: Text("JUGAR", style: TextStyle(fontSize: 24)),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              _buildPlayerInfo(context, true),
-              const SizedBox(height: 12),
-              _buildChessBoard(context),
-              const SizedBox(height: 12),
-              _buildPlayerInfo(context, false),
-            ],
-          ),
-        ),
       ),
     );
   }
