@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart'
+    show BluetoothDevice, BluetoothConnectionState; // Specific imports
+import '../services/bluetooth_service.dart';
 import '../view_models/chess_view_model.dart';
+import '../view_models/settings_view_model.dart'; // Import SettingsViewModel
 import '../models/chess_model.dart';
 
 class ChessGameScreen extends StatefulWidget {
@@ -15,12 +19,47 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
   Widget build(BuildContext context) {
     return Consumer<ChessViewModel>(
       builder: (context, viewModel, child) {
-        // Mostrar diálogo de promoción cuando sea necesario
+        // Show promotion dialog when necessary
         if (viewModel.isPromotionPending) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _showPromotionDialog(context, viewModel);
           });
         }
+
+        // Connection Status Display (simple version below AppBar)
+        Widget connectionStatusWidget = ValueListenableBuilder<BluetoothConnectionState>(
+          valueListenable: viewModel.connectionStateNotifier,
+          builder: (context, state, child) {
+            String statusText = "Bluetooth: ";
+            switch (state) {
+              case BluetoothConnectionState.connecting:
+                statusText += "Connecting...";
+                break;
+              case BluetoothConnectionState.connected:
+                statusText += "Connected to ${viewModel.connectedDevice?.name ?? 'device'}";
+                break;
+              case BluetoothConnectionState.disconnected:
+                statusText += "Disconnected";
+                if (viewModel.isMultiplayerGame) { // If game was ongoing, mention it
+                    statusText += " (Game ended)";
+                }
+                break;
+              case BluetoothConnectionState.error:
+                statusText += "Error";
+                break;
+              default:
+                statusText += "Idle"; // Should be .disconnected initially
+            }
+            // Only show if multiplayer has been attempted or is active
+            if (viewModel.isMultiplayerGame || state == BluetoothConnectionState.connecting || state == BluetoothConnectionState.connected) {
+                return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 12.0),
+                    child: Text(statusText, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                );
+            }
+            return const SizedBox.shrink(); // Empty if not relevant
+          },
+        );
 
         return Scaffold(
           appBar: AppBar(
@@ -28,6 +67,14 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
             title: const Center(
               child: Text("JUGAR", style: TextStyle(fontSize: 24)),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.bluetooth),
+                onPressed: () {
+                  _showBluetoothOptionsDialog(context, viewModel);
+                },
+              ),
+            ],
           ),
           body: SafeArea(
             child: SingleChildScrollView(
@@ -35,7 +82,9 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
               child: Column(
                 children: [
                   _buildPlayerInfo(context, true),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 4),
+                  connectionStatusWidget, // Display connection status
+                  const SizedBox(height: 8),
                   _buildChessBoard(context, viewModel),
                   const SizedBox(height: 12),
                   _buildPlayerInfo(context, false),
@@ -43,6 +92,127 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
               ),
             ),
           ),
+        );
+      },
+    );
+  }
+
+  void _showBluetoothOptionsDialog(BuildContext context, ChessViewModel viewModel) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Bluetooth Multiplayer'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.bluetooth_searching_outlined), // Changed icon
+                title: const Text('Host Game'),
+                onTap: () {
+                  Navigator.of(dialogContext).pop(); // Close this dialog
+                  viewModel.startHosting().then((_) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Hosting game... Waiting for opponent.')),
+                    );
+                  }).catchError((error) {
+                     ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to host: ${error.toString()}')),
+                    );
+                  });
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.search_outlined), // Changed icon
+                title: const Text('Scan for Games'),
+                onTap: () {
+                  Navigator.of(dialogContext).pop(); // Close this dialog
+                  viewModel.startBluetoothScan().then((_) {
+                     _showDiscoveredDevicesDialog(context, viewModel);
+                  }).catchError((error) {
+                     ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Scan failed: ${error.toString()}')),
+                    );
+                  });
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDiscoveredDevicesDialog(BuildContext context, ChessViewModel viewModel) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Discovered Devices'),
+          content: SizedBox(
+            width: double.maxFinite, // Use available width
+            child: ValueListenableBuilder<List<BluetoothDevice>>(
+              valueListenable: viewModel.discoveredDevicesNotifier,
+              builder: (context, devices, child) {
+                if (devices.isEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 10),
+                        Text('Scanning... No devices found yet.'),
+                        Text('Ensure other device is hosting & discoverable.', textAlign: TextAlign.center),
+                      ],
+                    )
+                  );
+                }
+                return ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: devices.length,
+                  itemBuilder: (context, index) {
+                    final device = devices[index];
+                    return ListTile(
+                      title: Text(device.name ?? 'Unknown Device'),
+                      subtitle: Text(device.address),
+                      leading: const Icon(Icons.bluetooth_connected_outlined), // Changed icon
+                      onTap: () {
+                        Navigator.of(dialogContext).pop(); // Close this dialog
+                        viewModel.connectToDevice(device).then((_) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Connecting to ${device.name ?? device.address}...')),
+                          );
+                        }).catchError((error) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Connection failed: ${error.toString()}')),
+                          );
+                        });
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Rescan'),
+              onPressed: () {
+                 // No need to pop, just rescan
+                 viewModel.startBluetoothScan().catchError((error) {
+                     ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Rescan failed: ${error.toString()}')),
+                    );
+                  });
+              },
+            ),
+            TextButton(
+              child: const Text('Close'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
         );
       },
     );
@@ -157,8 +327,10 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
   }
 
   Widget _buildChessBoard(BuildContext context, ChessViewModel viewModel) {
-    const lightSquareColor = Color(0xFFF0D9B5);
-    const darkSquareColor = Color(0xFFB58863);
+    // Access SettingsViewModel to get the current board style
+    final settingsViewModel = Provider.of<SettingsViewModel>(context);
+    final lightSquareColor = settingsViewModel.currentBoardStyle.lightSquareColor;
+    final darkSquareColor = settingsViewModel.currentBoardStyle.darkSquareColor;
 
     return AspectRatio(
       aspectRatio: 1,
